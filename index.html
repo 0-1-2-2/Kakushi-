@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>隠された頁</title>
+<style>
+  :root{
+    --paper:#FAF9F6;
+    --paper-dim:#F2F0EA;
+    --ink:#2B2B28;
+    --ink-soft:#6B6862;
+    --mist:#E4E1D8;
+    --mist-strong:#D6D2C5;
+    --gold:#B8923C;
+    --gold-pale:#D9CFB0;
+    --whisper:#9CA8A0;
+    --miss:#C77B66;
+    --serif:"Hiragino Mincho ProN","Yu Mincho","YuMincho","Noto Serif JP",serif;
+    --sans:"Hiragino Kaku Gothic ProN","Yu Gothic","Noto Sans JP",sans-serif;
+    --mono:"SF Mono","Consolas","Menlo",monospace;
+  }
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  html,body{ height:100%; }
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:var(--sans);
+    -webkit-font-smoothing:antialiased;
+    overflow:hidden;
+  }
+
+  #app{ position:relative; width:100%; height:100vh; overflow:hidden; }
+  #app.scrollable{ overflow-y:auto; -webkit-overflow-scrolling:touch; }
+
+  .scene{ animation:fadeIn .5s ease both; }
+  @keyframes fadeIn{ from{ opacity:0; transform:translateY(6px); } to{ opacity:1; transform:translateY(0); } }
+  @media (prefers-reduced-motion: reduce){ .scene{ animation:none; } }
+
+  /* ---------- title / clear screens ---------- */
+  .title-scene, .clear-scene{
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    height:100%; text-align:center; gap:26px; padding:24px;
+  }
+  .title-scene h1, .clear-scene h2{
+    font-family:var(--serif); font-weight:400; letter-spacing:.14em;
+    font-size:clamp(28px,6vw,44px);
+  }
+  .title-scene .sub{
+    font-family:var(--serif); color:var(--ink-soft);
+    font-size:clamp(12px,2.4vw,14px); letter-spacing:.06em;
+  }
+  .stat-line{
+    font-family:var(--mono); color:var(--ink-soft);
+    font-size:14px; letter-spacing:.03em;
+  }
+  .btn-primary{
+    font-family:var(--sans); border:1px solid var(--ink); background:transparent;
+    color:var(--ink); padding:13px 40px; font-size:13px; letter-spacing:.2em;
+    cursor:pointer; transition:background .25s, color .25s;
+  }
+  .btn-primary:hover{ background:var(--ink); color:var(--paper); }
+  .btn-primary:focus-visible{ outline:2px solid var(--gold); outline-offset:3px; }
+
+  /* ---------- progress + timer (fixed chrome) ---------- */
+  #progress{
+    position:fixed; top:28px; left:50%; transform:translateX(-50%);
+    display:flex; align-items:center; gap:24px; z-index:50;
+  }
+  #progress::before{
+    content:''; position:absolute; left:-4px; right:-4px; top:50%;
+    height:1px; background:var(--mist); transform:translateY(-50%); z-index:-1;
+  }
+  #progress .dot{
+    width:8px; height:8px; border-radius:50%; background:var(--paper);
+    border:1px solid var(--mist-strong); transition:all .4s ease; box-shadow:0 0 0 4px var(--paper);
+  }
+  #progress .dot.done{ background:var(--gold); border-color:var(--gold); }
+  #progress .dot.current{ border-color:var(--ink-soft); }
+  #timer{
+    position:fixed; top:26px; left:26px; font-family:var(--mono);
+    font-size:12px; color:var(--ink-soft); letter-spacing:.05em; z-index:50;
+  }
+  .hidden{ display:none !important; }
+
+  /* ---------- hint ---------- */
+  .hint-btn{
+    position:fixed; bottom:26px; right:26px; font-family:var(--sans); font-size:12px;
+    color:var(--whisper); background:none; border:none; cursor:pointer;
+    letter-spacing:.05em; opacity:0; transition:opacity .6s ease; z-index:50;
+  }
+  .hint-btn.show{ opacity:1; }
+  .hint-btn:hover{ color:var(--ink-soft); }
+  .hint-btn:focus-visible{ outline:2px solid var(--gold); outline-offset:3px; }
+  .hint-text{
+    position:fixed; bottom:54px; right:26px; max-width:230px; font-size:12px;
+    color:var(--ink-soft); background:var(--paper-dim); border:1px solid var(--mist);
+    padding:11px 14px; line-height:1.7; z-index:50; animation:fadeIn .4s ease both;
+  }
+
+  /* ---------- generic stage shell ---------- */
+  .stage{ position:relative; width:100%; height:100%; }
+
+  /* stage 1 */
+  .stage1 .line{
+    position:absolute; top:20%; left:50%; transform:translateX(-50%);
+    font-family:var(--serif); font-size:clamp(13px,3vw,15px); color:var(--ink-soft);
+    white-space:nowrap;
+  }
+  .smudge{
+    position:absolute; width:clamp(26px,7vw,36px); height:clamp(26px,7vw,36px);
+    border-radius:50%; cursor:pointer;
+    background:radial-gradient(circle, rgba(43,43,40,0.11), rgba(43,43,40,0) 70%);
+  }
+
+  /* stage 2 */
+  .grid-wrap{
+    position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+    display:grid; grid-template-columns:repeat(10,1fr);
+    gap:clamp(9px,2.6vw,20px); width:min(86vw,460px);
+  }
+  .dot{
+    width:clamp(7px,1.8vw,10px); height:clamp(7px,1.8vw,10px);
+    border-radius:50%; background:var(--mist-strong);
+  }
+  .dot-target{
+    width:clamp(9px,2.2vw,12px); height:clamp(9px,2.2vw,12px);
+    background:var(--gold-pale); cursor:pointer;
+  }
+
+  /* stage 3 */
+  .passage{
+    position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+    max-width:540px; width:86%; font-family:var(--serif);
+    font-size:clamp(14px,3.6vw,16px); line-height:2.15; color:var(--ink);
+  }
+  .hidden-word{ color:var(--ink-soft); cursor:pointer; }
+
+  /* stage 4 */
+  .decoy-square{
+    position:absolute; width:clamp(38px,11vw,48px); height:clamp(38px,11vw,48px);
+    border:1px solid var(--mist-strong); cursor:pointer; transition:transform .15s;
+  }
+  .decoy-square.correct{ border-color:var(--gold-pale); }
+  .decoy-square.shake{ animation:shake .4s ease; }
+  @keyframes shake{
+    10%,90%{ transform:translateX(-2px); }
+    20%,80%{ transform:translateX(3px); }
+    30%,50%,70%{ transform:translateX(-4px); }
+    40%,60%{ transform:translateX(4px); }
+  }
+
+  /* stage 5 */
+  .stage.stage5{ height:auto; min-height:100%; }
+  .narrative{
+    width:100%; max-width:480px; margin:0 auto;
+    padding:16vh 24px 46vh; font-family:var(--serif);
+    font-size:clamp(14px,3.6vw,16px); line-height:2.4; color:var(--ink-soft); text-align:center;
+  }
+  .narrative p{ margin-bottom:3.1em; }
+  .narrative .arrow{
+    display:block; margin-top:1.5em; font-size:14px; color:var(--whisper);
+    animation:bob 1.8s ease-in-out infinite;
+  }
+  @keyframes bob{ 0%,100%{ transform:translateY(0); } 50%{ transform:translateY(6px); } }
+  .hidden-period{ color:var(--ink); cursor:pointer; font-size:1.2em; }
+
+  /* ---------- discovery / miss feedback ---------- */
+  .found-flash{
+    position:absolute; pointer-events:none; width:40px; height:40px; border-radius:50%;
+    background:radial-gradient(circle, rgba(184,146,60,.38), rgba(184,146,60,0) 70%);
+    transform:translate(-50%,-50%) scale(0); animation:ripple .85s ease forwards;
+  }
+  @keyframes ripple{ to{ transform:translate(-50%,-50%) scale(8); opacity:0; } }
+  .found-label{
+    position:absolute; left:50%; top:50%; transform:translate(-50%,-50%) scale(.9);
+    font-family:var(--serif); font-size:clamp(20px,5vw,28px); letter-spacing:.22em;
+    color:var(--gold); opacity:0; pointer-events:none; animation:foundLabel 1s ease forwards;
+  }
+  @keyframes foundLabel{
+    0%{ opacity:0; transform:translate(-50%,-50%) scale(.9); }
+    30%{ opacity:1; transform:translate(-50%,-50%) scale(1); }
+    80%{ opacity:1; }
+    100%{ opacity:0; }
+  }
+  .miss-flash{
+    position:absolute; pointer-events:none; width:6px; height:6px; border-radius:50%;
+    background:var(--miss); opacity:.55; transform:translate(-50%,-50%) scale(1);
+    animation:missFade .5s ease forwards;
+  }
+  @keyframes missFade{ to{ opacity:0; transform:translate(-50%,-50%) scale(3.4); } }
+</style>
+</head>
+<body>
+
+  <div id="progress" class="hidden"></div>
+  <div id="timer" class="hidden">00:00</div>
+  <div id="app"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  var STAGE_COUNT = 5;
+  var app = document.getElementById('app');
+  var progressEl = document.getElementById('progress');
+  var timerEl = document.getElementById('timer');
+
+  var state = { stage:0, startTime:0, missCount:0, timerId:null, hintTimerId:null };
+
+  function reducedMotion(){
+    return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  }
+
+  function fmtTime(ms){
+    var s = Math.max(0, Math.floor(ms/1000));
+    var m = String(Math.floor(s/60)).padStart(2,'0');
+    var ss = String(s%60).padStart(2,'0');
+    return m+':'+ss;
+  }
+
+  /* ---------- progress chrome ---------- */
+  function buildProgress(){
+    progressEl.innerHTML = '';
+    for(var i=1;i<=STAGE_COUNT;i++){
+      var d = document.createElement('span');
+      d.className = 'dot';
+      d.dataset.idx = i;
+      progressEl.appendChild(d);
+    }
+  }
+  function updateProgress(){
+    var dots = progressEl.children;
+    for(var i=0;i<dots.length;i++){
+      var idx = +dots[i].dataset.idx;
+      dots[i].classList.toggle('done', idx < state.stage);
+      dots[i].classList.toggle('current', idx === state.stage);
+    }
+  }
+
+  /* ---------- timer ---------- */
+  function startTimerLoop(){
+    timerEl.classList.remove('hidden');
+    timerEl.textContent = '00:00';
+    state.timerId = setInterval(function(){
+      timerEl.textContent = fmtTime(Date.now() - state.startTime);
+    }, 250);
+  }
+  function stopTimerLoop(){
+    clearInterval(state.timerId);
+    timerEl.classList.add('hidden');
+  }
+
+  /* ---------- hint ---------- */
+  function quadrantPhrase(leftPct, topPct){
+    var h = leftPct < 35 ? '左' : leftPct > 65 ? '右' : '';
+    var v = topPct < 35 ? '上' : topPct > 65 ? '下' : '';
+    if(h && v) return h+v;
+    if(h) return h+'寄り';
+    if(v) return v+'寄り';
+    return '中央';
+  }
+  function showHintButton(text){
+    clearHintUI();
+    var btn = document.createElement('button');
+    btn.className = 'hint-btn';
+    btn.type = 'button';
+    btn.textContent = 'ヒント';
+    btn.addEventListener('click', function(){
+      var old = document.querySelector('.hint-text');
+      if(old) old.remove();
+      var box = document.createElement('div');
+      box.className = 'hint-text';
+      box.textContent = text;
+      document.body.appendChild(box);
+      setTimeout(function(){ box.remove(); }, 4200);
+    });
+    document.body.appendChild(btn);
+    state.hintTimerId = setTimeout(function(){ btn.classList.add('show'); }, 9000);
+  }
+  function clearHintUI(){
+    clearTimeout(state.hintTimerId);
+    var nodes = document.querySelectorAll('.hint-btn, .hint-text');
+    for(var i=0;i<nodes.length;i++) nodes[i].remove();
+  }
+
+  /* ---------- feedback effects ---------- */
+  function spawnFoundEffect(container, x, y, cb){
+    if(reducedMotion()){ cb(); return; }
+    var flash = document.createElement('div');
+    flash.className = 'found-flash';
+    flash.style.left = x+'px';
+    flash.style.top = y+'px';
+    container.appendChild(flash);
+    var label = document.createElement('div');
+    label.className = 'found-label';
+    label.textContent = '見つけた';
+    container.appendChild(label);
+    setTimeout(cb, 850);
+  }
+  function spawnMissEffect(container, x, y){
+    if(reducedMotion()) return;
+    var m = document.createElement('div');
+    m.className = 'miss-flash';
+    m.style.left = x+'px';
+    m.style.top = y+'px';
+    container.appendChild(m);
+    setTimeout(function(){ m.remove(); }, 520);
+  }
+  function onFound(stageNum, container, evt){
+    clearHintUI();
+    container.style.pointerEvents = 'none';
+    var rect = container.getBoundingClientRect();
+    var x = evt.clientX - rect.left, y = evt.clientY - rect.top;
+    spawnFoundEffect(container, x, y, function(){
+      if(stageNum >= STAGE_COUNT){ finishGame(); }
+      else{ goToStage(stageNum+1); }
+    });
+  }
+  function onMiss(container, evt){
+    state.missCount++;
+    var rect = container.getBoundingClientRect();
+    spawnMissEffect(container, evt.clientX-rect.left, evt.clientY-rect.top);
+  }
+  function attachMissCatcher(scene){
+    scene.addEventListener('click', function(e){
+      if(e.target.closest('[data-role="target"]')) return;
+      onMiss(scene, e);
+    });
+  }
+
+  /* ---------- stage builders ---------- */
+  function buildStage1(scene){
+    attachMissCatcher(scene);
+    var line = document.createElement('p');
+    line.className = 'line';
+    line.textContent = 'ここには、何もないように見える。';
+    scene.appendChild(line);
+
+    var top = 30 + Math.random()*55;
+    var left = 8 + Math.random()*84;
+    var target = document.createElement('div');
+    target.className = 'smudge';
+    target.dataset.role = 'target';
+    target.style.top = top+'%';
+    target.style.left = left+'%';
+    target.addEventListener('click', function(e){ e.stopPropagation(); onFound(1, scene, e); });
+    scene.appendChild(target);
+
+    showHintButton(quadrantPhrase(left, top)+'のあたりを、よく見てみて。');
+  }
+
+  function buildStage2(scene){
+    attachMissCatcher(scene);
+    var wrap = document.createElement('div');
+    wrap.className = 'grid-wrap';
+    var cols = 10, rows = 6, total = cols*rows;
+    var targetIdx = Math.floor(Math.random()*total);
+    for(var i=0;i<total;i++){
+      var d = document.createElement('div');
+      d.className = 'dot';
+      if(i === targetIdx){
+        d.classList.add('dot-target');
+        d.dataset.role = 'target';
+        d.addEventListener('click', function(e){ e.stopPropagation(); onFound(2, scene, e); });
+      }
+      wrap.appendChild(d);
+    }
+    scene.appendChild(wrap);
+
+    var row = Math.floor(targetIdx/cols), col = targetIdx % cols;
+    var leftPct = (col/(cols-1))*100, topPct = (row/(rows-1))*100;
+    showHintButton('点の並びの、'+quadrantPhrase(leftPct, topPct)+'あたり。ひと粒だけ色が違う。');
+  }
+
+  function buildStage3(scene){
+    attachMissCatcher(scene);
+    var p = document.createElement('p');
+    p.className = 'passage';
+    p.innerHTML =
+      '白い紙には、いつも何かが隠れている。誰かが書いた跡を消したあとにも、' +
+      'かすかな凹凸が残る。光の角度を変えると、その' +
+      '<span class="hidden-word" data-role="target">輪郭</span>' +
+      'が浮かび上がることがある。探しているのは、たった一つの言葉。' +
+      'それだけが、ほかとは少しだけ違う色をしている。';
+    scene.appendChild(p);
+    var target = p.querySelector('.hidden-word');
+    target.addEventListener('click', function(e){ e.stopPropagation(); onFound(3, scene, e); });
+
+    showHintButton('文章の中の、ある一語だけ、インクの色が少し違う。');
+  }
+
+  function buildStage4(scene){
+    attachMissCatcher(scene);
+    var base = [[14,18],[78,14],[46,30],[12,68],[82,62],[50,82]];
+    var correctIdx = Math.floor(Math.random()*base.length);
+    var correctPos = null;
+    base.forEach(function(pos, i){
+      var left = pos[0] + (Math.random()*8-4);
+      var top = pos[1] + (Math.random()*8-4);
+      var sq = document.createElement('div');
+      sq.className = 'decoy-square';
+      sq.style.left = left+'%';
+      sq.style.top = top+'%';
+      if(i === correctIdx){
+        sq.classList.add('correct');
+        sq.dataset.role = 'target';
+        correctPos = [left, top];
+        sq.addEventListener('click', function(e){ e.stopPropagation(); onFound(4, scene, e); });
+      } else {
+        sq.dataset.role = 'decoy';
+        sq.addEventListener('click', function(){
+          sq.classList.add('shake');
+          setTimeout(function(){ sq.classList.remove('shake'); }, 420);
+        });
+      }
+      scene.appendChild(sq);
+    });
+
+    showHintButton(quadrantPhrase(correctPos[0], correctPos[1])+'にある四角が本物。枠の色がわずかに違う。');
+  }
+
+  function buildStage5(scene){
+    attachMissCatcher(scene);
+    var wrap = document.createElement('div');
+    wrap.className = 'narrative';
+    wrap.innerHTML =
+      '<p>この部屋には、もう何も残っていないはずだった。<span class="arrow">↓</span></p>' +
+      '<p>けれど、白い壁の奥に、小さな扉のあとがあるように見える。</p>' +
+      '<p>それを確かめるには、最後まで進むしかない。</p>' +
+      '<p>足音は、だんだん静かになっていく。</p>' +
+      '<p>もう少し。あとほんの少しだけ。</p>' +
+      '<p>長い夜が明けて、物語はここで終わる' +
+      '<span class="hidden-period" data-role="target">。</span></p>';
+    scene.appendChild(wrap);
+    var target = wrap.querySelector('.hidden-period');
+    target.addEventListener('click', function(e){ e.stopPropagation(); onFound(5, scene, e); });
+
+    showHintButton('物語の終わりまで、下へ進んでみて。最後の句点に、何かある。');
+  }
+
+  /* ---------- scene flow ---------- */
+  function renderStage(n){
+    clearHintUI();
+    app.classList.toggle('scrollable', n === 5);
+    app.innerHTML = '';
+    var scene = document.createElement('div');
+    scene.className = 'scene stage stage'+n;
+    app.appendChild(scene);
+    updateProgress();
+
+    if(n === 1) buildStage1(scene);
+    else if(n === 2) buildStage2(scene);
+    else if(n === 3) buildStage3(scene);
+    else if(n === 4) buildStage4(scene);
+    else if(n === 5) buildStage5(scene);
+
+    app.scrollTop = 0;
+  }
+  function goToStage(n){
+    state.stage = n;
+    renderStage(n);
+  }
+
+  function renderTitle(){
+    progressEl.classList.add('hidden');
+    timerEl.classList.add('hidden');
+    app.classList.remove('scrollable');
+    app.innerHTML = '';
+    var scene = document.createElement('div');
+    scene.className = 'scene title-scene';
+    scene.innerHTML =
+      '<h1>隠された頁</h1>' +
+      '<p class="sub">— 五つの白の中に、何かがある —</p>' +
+      '<button type="button" class="btn-primary" id="startBtn">はじめる</button>';
+    app.appendChild(scene);
+    document.getElementById('startBtn').addEventListener('click', startGame);
+  }
+
+  function startGame(){
+    state.missCount = 0;
+    state.startTime = Date.now();
+    buildProgress();
+    progressEl.classList.remove('hidden');
+    startTimerLoop();
+    goToStage(1);
+  }
+
+  function finishGame(){
+    stopTimerLoop();
+    clearHintUI();
+    app.classList.remove('scrollable');
+    progressEl.classList.add('hidden');
+    var totalMs = Date.now() - state.startTime;
+    app.innerHTML = '';
+    var scene = document.createElement('div');
+    scene.className = 'scene clear-scene';
+    scene.innerHTML =
+      '<h2>すべて見つけた</h2>' +
+      '<p class="stat-line">記録 '+fmtTime(totalMs)+' ・ 迷った回数 '+state.missCount+'</p>' +
+      '<button type="button" class="btn-primary" id="retryBtn">もう一度</button>';
+    app.appendChild(scene);
+    document.getElementById('retryBtn').addEventListener('click', startGame);
+  }
+
+  renderTitle();
+})();
+</script>
+</body>
+</html>
